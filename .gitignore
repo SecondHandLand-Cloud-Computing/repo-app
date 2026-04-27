@@ -5,3 +5,4 @@ server/.env
 client/.env
 tmp
 .idea/
+.env
