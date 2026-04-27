@@ -1,6 +1,7 @@
 import streamifier from "streamifier";
 
 import cloudinary from "../config/cloudinary.config.js";
+import { env } from "../config/env.js";
 import { AppError } from "../utils/AppError.js";
 import { logger } from "../utils/logger.js";
 
@@ -43,15 +44,26 @@ export const CloudinaryService = {
   },
 
   generateSignedUrl(publicId, expiresInSeconds = 3600) {
+    if (!publicId) return null;
+
+    if (!env.CLOUD_NAME || !env.CLOUD_API_KEY || !env.CLOUD_API_SECRET) {
+      return null;
+    }
+
     // expires_at = UNIX timestamp
     const expiresAt = Math.floor(Date.now() / 1000) + expiresInSeconds;
 
-    return cloudinary.url(publicId, {
-      type: "private",
-      sign_url: true,
-      secure: true,
-      expires_at: expiresAt,
-    });
+    try {
+      return cloudinary.url(publicId, {
+        type: "private",
+        sign_url: true,
+        secure: true,
+        expires_at: expiresAt,
+      });
+    } catch (err) {
+      logger.warn("[Cloudinary] generateSignedUrl fallback:", err?.message || err);
+      return null;
+    }
   },
 
   async deleteFile(publicId) {

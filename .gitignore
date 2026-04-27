@@ -3,6 +3,7 @@ node_modules
 package-lock.json
 server/.env
 client/.env
+.env
 tmp
 .idea/
 .env

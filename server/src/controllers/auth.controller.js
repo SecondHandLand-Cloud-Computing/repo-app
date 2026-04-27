@@ -81,7 +81,7 @@ export const register = asyncHandler(async (req, res) => {
 
   res.cookie("token", accessToken, {
     httpOnly: true,
-    secure: env.NODE_ENV === "production",
+    secure: env.COOKIE_SECURE,
     sameSite: "strict",
     maxAge: 60 * 60 * 1000,
   });
@@ -99,7 +99,7 @@ export const login = asyncHandler(async (req, res) => {
 
   res.cookie("token", accessToken, {
     httpOnly: true,
-    secure: env.NODE_ENV === "production",
+    secure: env.COOKIE_SECURE,
     sameSite: "strict",
     maxAge: 60 * 60 * 1000,
   });
@@ -134,7 +134,7 @@ export const logout = asyncHandler(async (req, res) => {
   // delete cookie token session
   res.clearCookie("token", {
     httpOnly: true,
-    secure: env.NODE_ENV === "production",
+    secure: env.COOKIE_SECURE,
     sameSite: "strict",
   });
 

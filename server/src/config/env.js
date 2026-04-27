@@ -1,6 +1,11 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+const parseBoolean = (value, fallback) => {
+  if (value === undefined) return fallback;
+  return value === "true";
+};
+
 export const env = {
   NODE_ENV: process.env.NODE_ENV,
   PORT: process.env.PORT,
@@ -15,4 +20,5 @@ export const env = {
   CLOUD_NAME: process.env.CLOUD_NAME,
   CLOUD_API_KEY: process.env.CLOUD_API_KEY,
   CLOUD_API_SECRET: process.env.CLOUD_API_SECRET,
+  COOKIE_SECURE: parseBoolean(process.env.COOKIE_SECURE, process.env.NODE_ENV === "production"),
 };

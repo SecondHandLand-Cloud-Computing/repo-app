@@ -8,7 +8,8 @@ import {
   LogOut,
   Activity,
 } from "lucide-react";
-import mockProfileData from "@/pages/ProfilePage/ProfileData.js";
+import { useAuthContext } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const MENU_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -21,17 +22,38 @@ const MENU_ITEMS = [
 ];
 
 export default function Sidebar({ activeTab, setActiveTab }) {
+  const { logout, user } = useAuthContext();
+  const navigate = useNavigate();
+
+  const handleClick = async (tab) => {
+    if (tab.id === "logout") {
+      try {
+        await logout();
+      } finally {
+        navigate("/login");
+      }
+      return;
+    }
+    setActiveTab(tab.id);
+  };
+
+  const displayName =
+    user?.name?.firstName || user?.name?.lastName
+      ? `${user?.name?.firstName || ""} ${user?.name?.lastName || ""}`.trim()
+      : user?.email || "Admin";
+  const displayEmail = user?.email || "admin@example.com";
+
   return (
     <aside className="w-56 bg-[#283645] text-white p-4 hidden md:flex flex-col">
       {/* Profile */}
       <div className="flex items-center gap-2 mb-6">
         <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg font-bold">
-          {mockProfileData.fullName.charAt(0)}
+          {displayName.charAt(0)}
         </div>
 
         <div className="leading-tight truncate">
-          <p className="font-semibold text-sm">{mockProfileData.fullName}</p>
-          <p className="text-xs text-white/70 truncate">{mockProfileData.email}</p>
+          <p className="font-semibold text-sm">{displayName}</p>
+          <p className="text-xs text-white/70 truncate">{displayEmail}</p>
         </div>
       </div>
 
@@ -40,7 +62,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
         {MENU_ITEMS.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleClick(tab)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base transition
     ${
       tab.danger

@@ -4,7 +4,6 @@ import { User, List, Heart, Bell, LogOut, CreditCard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Sidebar = () => {
-
   const location = useLocation();
 
   const navigate = useNavigate();
@@ -51,8 +50,10 @@ const Sidebar = () => {
               to={item.path}
               onClick={() => window.scrollTo(0, 0)}
               className={({ isActive }) => {
-                const isActiveLink = isActive ||
-                  (item.activeIncludes && item.activeIncludes.some(path => location.pathname.startsWith(path)));
+                const isActiveLink =
+                  isActive ||
+                  (item.activeIncludes &&
+                    item.activeIncludes.some((path) => location.pathname.startsWith(path)));
 
                 return `flex items-center gap-3 transition-colors ${
                   isActiveLink
@@ -73,7 +74,10 @@ const Sidebar = () => {
       <ul>
         <li>
           <button
-            onClick={()=>{localStorage.removeItem("accessToken"); navigate("/login");}}
+            onClick={() => {
+              localStorage.removeItem("accessToken");
+              navigate("/login");
+            }}
             className="w-full flex  items-center gap-3 text-xl text-red-600 hover:bg-red-50 pl-5 rounded-md transition"
           >
             <LogOut size={20} /> Log out

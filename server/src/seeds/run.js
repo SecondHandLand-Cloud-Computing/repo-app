@@ -11,14 +11,16 @@ const __dirname = path.dirname(__filename);
 async function main() {
   const args = process.argv.slice(2);
 
+  // Default behavior: run all seeds when no explicit argument is provided.
+  const normalizedArgs = args.length === 0 ? ["all"] : args;
+
   if (args.length === 0) {
-    logger.error("[SEED] Missing seed name. Usage: npm run seed [d] [all] [seed-name]");
-    process.exit(1);
+    logger.info("[SEED] No seed name provided. Running all seed files...");
   }
 
   await connectDB();
 
-  const shouldRunAll = args.includes("all");
+  const shouldRunAll = normalizedArgs.includes("all");
 
   let seedFiles = [];
 
@@ -27,8 +29,16 @@ async function main() {
   } else {
     const allSeedFiles = fs.readdirSync(__dirname);
     seedFiles = allSeedFiles.filter((file) =>
-      args.filter((a) => a !== "d").some((name) => file.endsWith(`${name}.seed.js`))
+      normalizedArgs.filter((a) => a !== "d").some((name) => file.endsWith(`${name}.seed.js`))
     );
+  }
+
+  if (seedFiles.length === 0) {
+    logger.error(
+      `[SEED] No matching seed files for args: ${normalizedArgs.join(" ")}. Usage: npm run seed [all] [seed-name]`
+    );
+    await disconnectDB();
+    process.exit(1);
   }
 
   for (const file of seedFiles) {

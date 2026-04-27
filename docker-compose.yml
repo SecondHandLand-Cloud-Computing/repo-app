@@ -1,10 +1,23 @@
+version: "3.8"
+
 services:
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    image: cloud_frontend:latest
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
   backend:
     build:
       context: ./server
     image: cloud_backend:latest
     ports:
-      - "5000:5000"
+      - "5001:5000"
     env_file:
       - ./server/.env
     environment:
@@ -13,6 +26,8 @@ services:
       - MONGO_URI=mongodb://mongo:27017/cloud_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - JWT_SECRET=local-dev-secret-change-me
+      - COOKIE_SECURE=false
     depends_on:
       # Khóa bảo vệ: Ép Backend phải kiên nhẫn chờ đến khi Mongo và Redis báo "healthy" thì mới được chạy
       mongo:
@@ -29,6 +44,8 @@ services:
       - mongo_data:/data/db # Ánh xạ ổ cứng thật vào container để dữ liệu không bị mất khi tắt máy
     environment:
       - MONGO_INITDB_DATABASE=cloud_db
+      - MONGO_INITDB_ROOT_USERNAME:${MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD:${MONGO_PASSWORD}
     healthcheck:
       # KIỂM TRA: Cứ mỗi 10s, dùng lệnh 'mongosh' gõ cửa hỏi xem DB đã sẵn sàng nhận request chưa
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
@@ -73,17 +90,16 @@ services:
       - /var/run:/var/run:ro #để cAdvisor biết container nào đang chạy
       - /sys:/sys:ro #lấy được: CPU usage, memory limit, throttling
       - /var/lib/docker/:/var/lib/docker:ro #map container → metrics
+    restart: unless-stopped
 
   grafana:
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin # Mật khẩu đã được đổi thành cloudcomputing
       - GF_SECURITY_ALLOW_EMBEDDING=true
       - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
     volumes:
       - grafana_data:/var/lib/grafana
     restart: unless-stopped

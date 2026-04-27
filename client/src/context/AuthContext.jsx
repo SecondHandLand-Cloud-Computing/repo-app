@@ -11,8 +11,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await axiosClient.get("/me");
-        setUser(res.data.user || null);
+        const res = await axiosClient.get("/user/me");
+        setUser(res.data.data || null);
       } catch {
         setUser(null);
       } finally {
@@ -25,7 +25,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await axiosClient.post("/logout");
+      await axiosClient.post("/auth/logout");
       setUser(null);
     } catch (err) {
       console.error("Logout error:", err);
