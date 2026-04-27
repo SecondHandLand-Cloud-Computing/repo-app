@@ -1,5 +1,6 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { OrderService } from "../services/order.service.js";
+import { successCheckoutTotal } from "../monitoring/businessMetrics.js"; // Import metric
 
 export const createOrder = asyncHandler(async (req, res) => {
   const userId = req.user.sub;
@@ -8,6 +9,8 @@ export const createOrder = asyncHandler(async (req, res) => {
   const { products, pickupAddress } = req.body;
 
   const result = await OrderService.create(userId, products, pickupAddress);
+
+  successCheckoutTotal.inc();
 
   return res.status(200).json({
     message: "Create order successfully",

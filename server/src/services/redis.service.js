@@ -1,4 +1,5 @@
 import redis from "../config/redis.config.js";
+import { redisCacheHits, redisCacheMisses } from "../monitoring/dbMetrics.js";
 
 export const RedisService = {
   async set(key, value, ttl = null) {
@@ -9,7 +10,14 @@ export const RedisService = {
   },
 
   async get(key) {
-    const value = await redis.get(key);
+    const value = await redis.get(key); // value != null tức dữ liệu đã có trong redis
+    
+    if (value) {
+      redisCacheHits.inc();
+    } else {
+      redisCacheMisses.inc();
+    }
+
     try {
       return JSON.parse(value);
     } catch {

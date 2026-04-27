@@ -6,6 +6,8 @@ import { Order } from "../models/order.model.js";
 import { Wallet } from "../models/wallet.model.js";
 import { ProviderService } from "./provider.service.js";
 
+import { dbQueryDurationSeconds, dbActiveConnections, lockFailuresTotal } from "../monitoring/dbMetrics.js";
+
 import { AppError } from "../utils/AppError.js";
 
 export const OrderService = {
@@ -26,11 +28,17 @@ export const OrderService = {
       const createdOrders = [];
 
       for (const sellerId in ordersBySeller) {
+        const start = process.hrtime();
         // re-fetch product
         const dbProducts = await Product.find({
           _id: { $in: ordersBySeller[sellerId] },
           status: "active",
         }).session(session);
+
+        const diff = process.hrtime(start); // tính thời gian từ start đến thời điểm hiện tại. Trả về [seconds, nanoseconds]
+        const duration = diff[0] + diff[1] / 1e9; // quy chuẩn về giây cho Prometheus
+        dbQueryDurationSeconds.labels("find", "products_for_order").observe(duration)
+        
 
         if (dbProducts.length !== ordersBySeller[sellerId].length) {
           throw new AppError("Some products are no longer available", 400);
@@ -97,6 +105,16 @@ export const OrderService = {
       return createdOrders;
     } catch (err) {
       await session.abortTransaction();
+
+      // Lỗi văng ra do tranh chấp dữ liệu → tăng lockFailuresTotal
+      if (err.hasErrorLabel && err.hasErrorLabel('TransientTransactionError')) {
+        lockFailuresTotal.inc();
+      }
+      // lỗi Insufficient balance → tăng lockFailuresTotal
+      if (err.message === "Insufficient balance" || err.message === "Some products are no longer available") {
+        lockFailuresTotal.inc();
+      }
+
       throw err;
     } finally {
       session.endSession();
