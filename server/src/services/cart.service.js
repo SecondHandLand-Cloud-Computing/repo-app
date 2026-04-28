@@ -4,6 +4,7 @@ import { Product } from "../models/product.model.js";
 
 import { CloudinaryService } from "./cloudinary.service.js";
 import { AppError } from "../utils/AppError.js";
+import { measureDB } from "../monitoring/dbMetrics.js";
 
 export const CartService = {
   async create(userId) {
@@ -12,7 +13,7 @@ export const CartService = {
   },
 
   async getByUserId(userId) {
-    const cart = await Cart.findOne({ userId })
+    const cart = await measureDB("findOne", "carts", Cart.findOne({ userId })
       .populate({
         path: "products.id",
         select: "name description price imagePublicId createdBy",
@@ -21,7 +22,7 @@ export const CartService = {
           select: "name address",
         },
       })
-      .lean();
+      .lean());
 
     const products = cart.products.map((item) => {
       const product = item.id;
@@ -62,7 +63,7 @@ export const CartService = {
       throw new AppError("Cannot add your own product", 400);
     }
 
-    const cart = await Cart.findOne({ userId: userId });
+    const cart = await measureDB("findOne", "carts", Cart.findOne({ userId: userId }));
     // Check prod in cart
     const p = cart.products.some((item) => item.id.toString() === productId.toString());
     if (p) {
@@ -75,7 +76,7 @@ export const CartService = {
   },
 
   async remove(userId, productId) {
-    const cart = await Cart.findOne({ userId: userId });
+    const cart = await measureDB("findOne", "carts", Cart.findOne({ userId: userId }));
     // Check product in cart
     const p = cart.products.some((item) => item.id._id.toString() === productId.toString());
     if (!p) {

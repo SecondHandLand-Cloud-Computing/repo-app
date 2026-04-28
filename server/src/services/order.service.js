@@ -6,7 +6,8 @@ import { Order } from "../models/order.model.js";
 import { Wallet } from "../models/wallet.model.js";
 import { ProviderService } from "./provider.service.js";
 
-import { dbQueryDurationSeconds, dbActiveConnections, lockFailuresTotal } from "../monitoring/dbMetrics.js";
+import { dbQueryDurationSeconds, lockFailuresTotal } from "../monitoring/dbMetrics.js";
+import { measureDB } from "../monitoring/dbMetrics.js";
 
 import { AppError } from "../utils/AppError.js";
 
@@ -28,18 +29,12 @@ export const OrderService = {
       const createdOrders = [];
 
       for (const sellerId in ordersBySeller) {
-        const start = process.hrtime();
         // re-fetch product
-        const dbProducts = await Product.find({
+        const dbProducts = await measureDB("find", "products", Product.find({
           _id: { $in: ordersBySeller[sellerId] },
           status: "active",
-        }).session(session);
-
-        const diff = process.hrtime(start); // tính thời gian từ start đến thời điểm hiện tại. Trả về [seconds, nanoseconds]
-        const duration = diff[0] + diff[1] / 1e9; // quy chuẩn về giây cho Prometheus
-        dbQueryDurationSeconds.labels("find", "products_for_order").observe(duration)
+        }).session(session));
         
-
         if (dbProducts.length !== ordersBySeller[sellerId].length) {
           throw new AppError("Some products are no longer available", 400);
         }
@@ -71,26 +66,26 @@ export const OrderService = {
         createdOrders.push(order);
 
         // mark product sold
-        await Product.updateMany(
+        await measureDB("updateMany", "products", Product.updateMany(
           { _id: { $in: dbProducts.map((p) => p._id) } },
           { status: "sold" },
           { session }
-        );
+        ));
 
         // credit seller wallet (no escrow)
-        await Wallet.findOneAndUpdate(
+        await measureDB("findOneAndUpdate", "wallets", Wallet.findOneAndUpdate(
           { userId: sellerId },
           { $inc: { balance: subtotal } },
           { session, upsert: true }
-        );
+        ));
       }
 
       // deduct wallet (atomic)
-      const wallet = await Wallet.findOneAndUpdate(
+      const wallet = await measureDB("findOneAndUpdate", "wallets", Wallet.findOneAndUpdate(
         { userId, balance: { $gte: grandTotal } },
         { $inc: { balance: -grandTotal } },
         { session, new: true }
-      );
+      ));
 
       if (!wallet) throw new AppError("Insufficient balance", 400);
 

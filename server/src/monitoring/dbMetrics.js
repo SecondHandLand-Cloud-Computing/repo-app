@@ -37,3 +37,20 @@ export const dbQueryDurationSeconds = new client.Histogram({
   buckets: [0.01, 0.05, 0.1, 0.5, 1], // Thêm bucket 0.1 (100ms) để theo dõi slow query
   registers: [register],
 });
+
+/**
+ * hàm bọc wrapper để đo thời gian truy vấn database
+*/
+export const measureDB = async (queryType, collectionName, dbPromise) => {
+  // bắt đầu đo thời gian
+  const start = process.hrtime();
+  try {
+    const result = await dbPromise;
+    return result;
+  } finally {
+    // dừng và tính thời gian thực thi dù thành công hay trả lỗi
+    const diff = process.hrtime(start);
+    const duration = diff[0] + diff[1] /1e9;
+    dbQueryDurationSeconds.labels(queryType, collectionName).observe(duration);
+  }
+}

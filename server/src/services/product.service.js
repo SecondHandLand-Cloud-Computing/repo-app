@@ -4,13 +4,26 @@ import { Product } from "../models/product.model.js";
 import { Cart } from "../models/cart.model.js";
 import { CloudinaryService } from "./cloudinary.service.js";
 import { AppError } from "../utils/AppError.js";
+import { RedisService } from "./redis.service.js";
+import { measureDB } from "../monitoring/dbMetrics.js";
 
 export const ProductService = {
   async getById(productId, user) {
-    const product = await Product.findById(productId)
-      .populate("createdBy", "name _id address avatarPublicId")
-      .populate("categoryId", "name")
-      .lean();
+    // kiem tra redis truoc 
+    const cacheKey = `product_detail:${productId}`;
+    let product = await RedisService.get(cacheKey);
+    // neu redis khong co du lieu -> truy van mongoDB
+    if (!product) {
+      product = await measureDB("findById", "products", Product.findById(productId)
+        .populate("createdBy", "name _id address avatarPublicId")
+        .populate("categoryId", "name")
+        .lean());
+      
+      // truy van mongoDB va co du lieu -> luu vao redis
+      if (product) {
+        await RedisService.set(cacheKey, product, 60)
+      }
+    }
 
     if (!product) {
       throw new AppError("Product not found", 404);
@@ -109,6 +122,9 @@ export const ProductService = {
       );
     }
 
+    // bỏ cache cũ trong redis vì dữ liệu đã bị sửa đổi
+    await RedisService.del(`product_detail:${productId}`);
+
     return {
       ...updatedProduct,
       imagePublicUrl: CloudinaryService.generateSignedUrl(updatedProduct.imagePublicId),
@@ -122,13 +138,23 @@ export const ProductService = {
 
     // remove product all cart
     await Cart.updateMany({ "products.id": productId }, { $pull: { products: { productId } } });
+
+    // remove cache old in redis
+    await RedisService.del(`product_detail:${productId}`);
   },
 
   async getList(user, page, limit, search, categoryId) {
+    // tạo cache key động để phân biệt
+    const cacheKey = `product_list:role_${user?.role}:u_${user?.id}:p_${page}:l_${limit}:s_${search || ''}:c_${categoryId || ''}`;
+    const cacheData = await RedisService.get(cacheKey);
+    if (cacheData) {
+      return cacheData;
+    }
+
+    // neu khong co cache -> truy van mongoDB va luu vao redis
     const skip = (page - 1) * limit;
-
     const filter = {};
-
+    
     // admin can view all status
     if (user.role !== "admin") {
       filter.status = "active";
@@ -148,14 +174,14 @@ export const ProductService = {
     }
 
     const [items, total] = await Promise.all([
-      Product.find(filter)
+      measureDB("find", "products", Product.find(filter)
         .populate("createdBy", "name _id address")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .lean(),
-
-      Product.countDocuments(filter),
+        .lean()),
+      
+      measureDB("countDocuments", "products", Product.countDocuments(filter)),
     ]);
 
     // attach url
@@ -170,7 +196,7 @@ export const ProductService = {
       };
     });
 
-    return {
+    const finalResult = {
       data,
       pagination: {
         page,
@@ -178,10 +204,24 @@ export const ProductService = {
         total,
         totalPages: Math.ceil(total / limit),
       },
-    };
+    }
+
+    // luu vao redis
+    await RedisService.set(cacheKey, finalResult, 60);
+
+    return finalResult;
   },
 
   async getMyList(userId) {
+    // tao cache key
+    const cacheKey = `my_product_list:${userId}`;
+    // kiem tra redis 
+    const cacheData = await RedisService.get(cacheKey);
+    if (cacheData) {
+      return cacheData;
+    }
+
+    // neu khong co cache -> truy van mongoDB va luu vao redis
     const products = await Product.find({
       createdBy: new mongoose.Types.ObjectId(userId),
       status: { $ne: "deleted" },
@@ -190,13 +230,18 @@ export const ProductService = {
       .sort({ createdAt: -1 })
       .lean();
 
-    return products.map((product) => ({
+    const finalResult = products.map((product) => ({
       ...product,
       imagePublicUrl: CloudinaryService.generateSignedUrl(product.imagePublicId),
       category: {
         _id: product.categoryId._id,
         name: product.categoryId.name,
       },
-    }));
+    }))
+
+    // luu vao redis
+    await RedisService.set(cacheKey, finalResult, 15);
+
+    return finalResult
   },
 };
