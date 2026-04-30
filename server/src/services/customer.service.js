@@ -3,6 +3,7 @@ import { AppError } from "../utils/AppError.js";
 
 import { ReviewService } from "./review.service.js";
 import { CloudinaryService } from "./cloudinary.service.js";
+import { RedisService } from "./redis.service.js";
 
 export const CustomerService = {
   async create(mail, password) {
@@ -118,6 +119,9 @@ export const CustomerService = {
         select: "-password -failedLoginAttempts",
       }
     ).lean();
+
+    // vô hiệu hóa cache user_profile để data mới được cập nhật ngay lập tức
+    await RedisService.set(`user_version:${userId}`, Date.now());
 
     return {
       ...updatedCustomer,

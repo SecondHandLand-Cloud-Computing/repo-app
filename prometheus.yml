@@ -1,5 +1,8 @@
 global:
-  scrape_interval: 5s
+  scrape_interval: 15s      # Tần suất Prometheus đi thu thập metrics
+  scrape_timeout: 10s       # Timeout mỗi lần scrape (phải < scrape_interval)
+  evaluation_interval: 15s  # Tần suất đánh giá alerting rules
+
 
 scrape_configs:
   - job_name: "backend"

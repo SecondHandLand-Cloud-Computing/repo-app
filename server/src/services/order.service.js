@@ -101,12 +101,12 @@ export const OrderService = {
     } catch (err) {
       await session.abortTransaction();
 
-      // Lỗi văng ra do tranh chấp dữ liệu → tăng lockFailuresTotal
+      // Transient transaction errors (lock contention, write conflict, etc.)
       if (err.hasErrorLabel && err.hasErrorLabel('TransientTransactionError')) {
         lockFailuresTotal.inc();
       }
-      // lỗi Insufficient balance → tăng lockFailuresTotal
-      if (err.message === "Insufficient balance" || err.message === "Some products are no longer available") {
+      // MongoDB WriteConflict error (code 112) — reliable, won't break if messages change
+      else if (err.code === 112) {
         lockFailuresTotal.inc();
       }
 

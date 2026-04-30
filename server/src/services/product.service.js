@@ -9,8 +9,12 @@ import { measureDB } from "../monitoring/dbMetrics.js";
 
 export const ProductService = {
   async getById(productId, user) {
+    let currentVersion = await RedisService.get(`product_version:${productId}`);
+    if (!currentVersion) {
+      currentVersion = 1;
+    }
     // kiem tra redis truoc 
-    const cacheKey = `product_detail:${productId}`;
+    const cacheKey = `product_detail:${productId}:v${currentVersion}`;
     let product = await RedisService.get(cacheKey);
     // neu redis khong co du lieu -> truy van mongoDB
     if (!product) {
@@ -122,8 +126,8 @@ export const ProductService = {
       );
     }
 
-    // bỏ cache cũ trong redis vì dữ liệu đã bị sửa đổi
-    await RedisService.del(`product_detail:${productId}`);
+    // thêm version mới trong redis vì dữ liệu đã bị sửa đổi
+    await RedisService.set(`product_version:${productId}`, Date.now());
 
     return {
       ...updatedProduct,
@@ -139,8 +143,8 @@ export const ProductService = {
     // remove product all cart
     await Cart.updateMany({ "products.id": productId }, { $pull: { products: { productId } } });
 
-    // remove cache old in redis
-    await RedisService.del(`product_detail:${productId}`);
+    // vô hiệu hóa cache bằng cách cập nhật version
+    await RedisService.set(`product_version:${productId}`, Date.now());
   },
 
   async getList(user, page, limit, search, categoryId) {
@@ -239,7 +243,11 @@ export const ProductService = {
       },
     }))
 
-    // luu vao redis
+    // TTL ngắn hơn (15s) so với getList (60s) là có chủ đích:
+    // Đây là dữ liệu cá nhân — user kỳ vọng thấy thay đổi gần như ngay
+    // sau khi tạo / sửa / xóa sản phẩm của mình. Cache danh sách này
+    // không bị invalidate chủ động khi có mutation, nên TTL ngắn đóng
+    // vai trò safety net để dữ liệu không bị stale quá lâu.
     await RedisService.set(cacheKey, finalResult, 15);
 
     return finalResult
