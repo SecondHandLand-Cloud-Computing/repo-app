@@ -18,7 +18,7 @@ export const getProduct = asyncHandler(async (req, res) => {
 });
 
 export const createProduct = asyncHandler(async (req, res) => {
-  const { name, description, price, category } = req.body; // type of category is id !!!
+  const { name, description, price, category, quantity } = req.body;
   const image = req.file;
 
   const user = {
@@ -32,6 +32,7 @@ export const createProduct = asyncHandler(async (req, res) => {
     name,
     description,
     Number(price),
+    Number(quantity ?? 0),
     image
   );
 

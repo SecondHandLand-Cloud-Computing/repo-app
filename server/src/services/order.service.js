@@ -6,8 +6,7 @@ import { Order } from "../models/order.model.js";
 import { Wallet } from "../models/wallet.model.js";
 import { ProviderService } from "./provider.service.js";
 
-import { dbQueryDurationSeconds, lockFailuresTotal } from "../monitoring/dbMetrics.js";
-import { measureDB } from "../monitoring/dbMetrics.js";
+import { lockFailuresTotal, measureDB } from "../monitoring/dbMetrics.js";
 
 import { AppError } from "../utils/AppError.js";
 
@@ -46,12 +45,17 @@ export const OrderService = {
         grandTotal += total;
 
         // create order
-        const [order] = await Order.create(
+        const [order] = await measureDB("create", "orders", Order.create(
           [
             {
               ownerId: userId,
-              products: dbProducts.map((p) => ({ id: p._id })),
+              products: dbProducts.map((p) => ({
+                id: p._id,
+                quantity: 1,          // mỗi item trong cart (chưa có multi-qty ở flow này)
+                priceAtOrder: p.price, // snapshot giá tại thời điểm đặt hàng
+              })),
               subtotal,
+              total,
               shipping: {
                 providerId,
                 pickupAddress: dbProducts[0].address,
@@ -61,7 +65,7 @@ export const OrderService = {
             },
           ],
           { session }
-        );
+        ));
 
         createdOrders.push(order);
 
@@ -90,11 +94,11 @@ export const OrderService = {
       if (!wallet) throw new AppError("Insufficient balance", 400);
 
       // remove cart
-      await Cart.updateOne(
+      await measureDB("updateOne", "carts", Cart.updateOne(
         { userId },
         { $pull: { products: { id: { $in: products.map((p) => p.id) } } } },
         { session }
-      );
+      ));
 
       await session.commitTransaction();
       return createdOrders;

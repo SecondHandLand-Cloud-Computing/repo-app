@@ -16,7 +16,7 @@ export const CartService = {
     const cart = await measureDB("findOne", "carts", Cart.findOne({ userId })
       .populate({
         path: "products.id",
-        select: "name description price imagePublicId createdBy",
+        select: "name description price imagePublicId createdBy quantity status",
         populate: {
           path: "createdBy",
           select: "name address",
@@ -32,6 +32,8 @@ export const CartService = {
         name: product.name,
         description: product.description,
         price: product.price,
+        quantity: item.quantity,
+        stock: product.quantity,
         imagePublicId: product.imagePublicId,
         imagePublicUrl: CloudinaryService.generateSignedUrl(product.imagePublicId),
         seller: {
@@ -42,8 +44,8 @@ export const CartService = {
       };
     });
 
-    const totalProducts = products.length;
-    const totalPrice = products.reduce((sum, product) => sum + product.price, 0);
+    const totalProducts = products.reduce((sum, item) => sum + item.quantity, 0);
+    const totalPrice = products.reduce((sum, product) => sum + (product.price * product.quantity), 0);
 
     return {
       _id: cart._id,
@@ -54,37 +56,44 @@ export const CartService = {
     };
   },
 
-  async addToCart(userId, productId) {
+  async addToCart(userId, productId, quantity = 1) {
     const product = await Product.findById(productId).lean();
     if (!product || product.status !== "active") throw new AppError("Product not found", 404);
 
-    // Check owner product
+    if (quantity > product.quantity) throw new AppError(`Only ${product.quantity} item(s) in stock`, 400);
+
     if (userId.toString() === product.createdBy.toString()) {
       throw new AppError("Cannot add your own product", 400);
     }
 
-    const cart = await measureDB("findOne", "carts", Cart.findOne({ userId: userId }));
-    // Check prod in cart
-    const p = cart.products.some((item) => item.id.toString() === productId.toString());
-    if (p) {
-      throw new AppError("Product already in cart", 400);
+    const cart = await Cart.findOne({ userId: userId });
+    const existingProductIndex = cart.products.findIndex((item) => item.id.toString() === productId.toString());
+    
+    if (existingProductIndex > -1) {
+      const newQuantity = cart.products[existingProductIndex].quantity + quantity;
+      if (newQuantity > product.quantity) throw new AppError(`Only ${product.quantity} item(s) in stock`, 400);
+      cart.products[existingProductIndex].quantity = newQuantity;
+    } else {
+      cart.products.push({ id: productId, quantity });
     }
-
-    cart.products.push({ id: productId });
+    
     await cart.save();
     return cart;
   },
 
-  async remove(userId, productId) {
-    const cart = await measureDB("findOne", "carts", Cart.findOne({ userId: userId }));
-    // Check product in cart
-    const p = cart.products.some((item) => item.id._id.toString() === productId.toString());
-    if (!p) {
+  async remove(userId, productId, quantityToRemove = 1) {
+    const cart = await Cart.findOne({ userId: userId });
+    const productIndex = cart.products.findIndex((item) => item.id.toString() === productId.toString());
+    
+    if (productIndex === -1) {
       throw new AppError("Product not in cart", 404);
     }
 
-    // Remove product
-    cart.products = cart.products.filter((item) => item.id._id.toString() !== productId.toString());
+    if (quantityToRemove >= cart.products[productIndex].quantity) {
+      cart.products.splice(productIndex, 1);
+    } else {
+      cart.products[productIndex].quantity -= quantityToRemove;
+    }
 
     await cart.save();
     return cart;

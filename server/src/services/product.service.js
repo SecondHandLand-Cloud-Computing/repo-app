@@ -60,7 +60,7 @@ export const ProductService = {
     return product;
   },
 
-  async create(user, categoryId, name, description, price, image) {
+  async create(user, categoryId, name, description, price, quantity, image) {
     if (user.role === "admin") throw new AppError("Only customer can create product", 400);
 
     const uploadResult = await CloudinaryService.uploadFile(image, "images");
@@ -71,6 +71,7 @@ export const ProductService = {
       name: name,
       description: description,
       price: price,
+      quantity: quantity ?? 0,
       imagePublicId: uploadResult.public_id,
     });
 
@@ -78,7 +79,7 @@ export const ProductService = {
   },
 
   async update(user, productId, payload, image = null) {
-    const product = await Product.findById(productId).lean();
+    const product = await measureDB("findById", "products", Product.findById(productId).lean());
 
     if (!product) {
       throw new AppError("Product not found", 404);
@@ -97,6 +98,8 @@ export const ProductService = {
 
     if (payload.price !== undefined) updateData.price = Number(payload.price);
 
+    if (payload.quantity !== undefined) updateData.quantity = Number(payload.quantity);
+
     // update alway set status pending
     updateData.status = "pending";
     if (payload.status && user.role === "admin") {
@@ -109,14 +112,14 @@ export const ProductService = {
       }
       updateData.imagePublicId = uploadResult.public_id;
     }
-    const updatedProduct = await Product.findByIdAndUpdate(
+    const updatedProduct = await measureDB("findOneAndUpdate", "products", Product.findByIdAndUpdate(
       productId,
       { $set: updateData },
       {
         new: true,
         runValidators: true,
       }
-    ).lean();
+    ).lean());
 
     // remove product all cart if product not active
     if (updatedProduct.status !== "active") {
@@ -136,12 +139,20 @@ export const ProductService = {
   },
 
   async delete(productId) {
-    const product = await Product.findByIdAndDelete(productId);
+    const product = await measureDB(
+      "findOneAndDelete",
+      "products",
+      Product.findByIdAndDelete(productId)
+    );
 
     await CloudinaryService.deleteFile(product.imagePublicId);
 
-    // remove product all cart
-    await Cart.updateMany({ "products.id": productId }, { $pull: { products: { productId } } });
+    // remove product from all carts
+    await measureDB(
+      "updateMany",
+      "carts",
+      Cart.updateMany({ "products.id": productId }, { $pull: { products: { id: productId } } })
+    );
 
     // vô hiệu hóa cache bằng cách cập nhật version
     await RedisService.set(`product_version:${productId}`, Date.now());
@@ -180,6 +191,7 @@ export const ProductService = {
     const [items, total] = await Promise.all([
       measureDB("find", "products", Product.find(filter)
         .populate("createdBy", "name _id address")
+        .populate("categoryId", "name")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -226,13 +238,13 @@ export const ProductService = {
     }
 
     // neu khong co cache -> truy van mongoDB va luu vao redis
-    const products = await Product.find({
+    const products = await measureDB("find", "products", Product.find({
       createdBy: new mongoose.Types.ObjectId(userId),
       status: { $ne: "deleted" },
     })
       .populate("categoryId", "name")
       .sort({ createdAt: -1 })
-      .lean();
+      .lean());
 
     const finalResult = products.map((product) => ({
       ...product,
