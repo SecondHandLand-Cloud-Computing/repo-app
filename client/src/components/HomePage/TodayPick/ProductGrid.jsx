@@ -88,10 +88,11 @@ export default function ProductGrid({ headerTitle, searchQuery = "", itemsPerPag
           {products.map((product) => (
             <Link key={product._id} to={`/product/${product._id}`}>
               <ProductCard
-                image={product.imagePublicUrl || "/placeholder.png"} // dùng trực tiếp từ API
+                image={product.imagePublicUrl || "/placeholder.png"}
                 title={product.name}
                 address={product.address || "Unknown"}
                 points={product.price}
+                quantity={product.quantity ?? 1}
               />
             </Link>
           ))}

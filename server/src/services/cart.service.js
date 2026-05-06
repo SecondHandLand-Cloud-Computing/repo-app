@@ -98,4 +98,23 @@ export const CartService = {
     await cart.save();
     return cart;
   },
+
+  async updateQuantity(userId, productId, quantity) {
+    const product = await measureDB("findById", "products", Product.findById(productId).lean());
+    if (!product || product.status !== "active") throw new AppError("Product not found", 404);
+
+    if (quantity > product.quantity) throw new AppError(`Only ${product.quantity} item(s) in stock`, 400);
+
+    const cart = await Cart.findOne({ userId: userId });
+    const productIndex = cart.products.findIndex((item) => item.id.toString() === productId.toString());
+    
+    if (productIndex === -1) {
+      throw new AppError("Product not in cart", 404);
+    }
+
+    cart.products[productIndex].quantity = quantity;
+    
+    await cart.save();
+    return cart;
+  },
 };

@@ -192,7 +192,7 @@ export const ProductService = {
       measureDB("find", "products", Product.find(filter)
         .populate("createdBy", "name _id address")
         .populate("categoryId", "name")
-        .sort({ createdAt: -1 })
+        .sort({ quantity: -1, createdAt: -1 }) // Ưu tiên hàng còn tồn kho trước, sau đó mới đến mới nhất
         .skip(skip)
         .limit(limit)
         .lean()),
