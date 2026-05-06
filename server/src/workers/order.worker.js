@@ -17,11 +17,13 @@ const processOrderJob = async (job) => {
       return;
     }
 
-    await Product.updateMany(
-      { _id: { $in: job.productIds } },
-      { $inc: { quantity: -1 } },
-      {}
-    );
+    const bulkOps = job.products.map((p) => ({
+      updateOne: {
+        filter: { _id: p.id },
+        update: { $inc: { quantity: -p.quantity } },
+      },
+    }));
+    await Product.bulkWrite(bulkOps);
 
     await Wallet.findOneAndUpdate(
       { userId: job.sellerId },
@@ -31,7 +33,7 @@ const processOrderJob = async (job) => {
 
     await Cart.updateOne(
       { userId: job.userId },
-      { $pull: { products: { id: { $in: job.productIds } } } },
+      { $pull: { products: { id: { $in: job.products.map((p) => p.id) } } } },
       {}
     );
 

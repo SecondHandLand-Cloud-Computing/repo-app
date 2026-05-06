@@ -63,18 +63,18 @@ export const InventoryService = {
     );
   },
 
-  normalizeItems(products) {
-    return products.map((product) => ({
-      productId: product._id.toString(),
-      quantity: 1,
+  normalizeItems(items) {
+    return items.map((item) => ({
+      productId: item.id ? item.id.toString() : item._id.toString(),
+      quantity: item.quantity || 1,
     }));
   },
 
-  async reserve(products) {
-    const items = this.normalizeItems(products);
+  async reserve(orderItems, dbProducts) {
+    const items = this.normalizeItems(orderItems);
     if (items.length === 0) return items;
 
-    await this.hydrateStockCache(products);
+    await this.hydrateStockCache(dbProducts);
 
     const keys = items.map((item) => this.getStockKey(item.productId));
     const args = items.map((item) => String(item.quantity));
@@ -88,8 +88,8 @@ export const InventoryService = {
     return items;
   },
 
-  async release(products) {
-    const items = this.normalizeItems(products);
+  async release(orderItems) {
+    const items = this.normalizeItems(orderItems);
     if (items.length === 0) return;
 
     const keys = items.map((item) => this.getStockKey(item.productId));

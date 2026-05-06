@@ -24,7 +24,7 @@ export const OrderService = {
       for (const p of products) {
         const sellerId = p.createdBy.toString();
         if (!ordersBySeller[sellerId]) ordersBySeller[sellerId] = [];
-        ordersBySeller[sellerId].push(p.id);
+        ordersBySeller[sellerId].push({ id: p.id, quantity: p.quantity || 1 });
         productIds.push(p.id);
       }
 
@@ -37,8 +37,8 @@ export const OrderService = {
         throw new AppError("Some products are no longer available", 400);
       }
 
-      await InventoryService.reserve(dbProducts);
-      reservedProducts.push(...dbProducts);
+      await InventoryService.reserve(products, dbProducts);
+      reservedProducts.push(...products);
 
       const sellers = await Customer.find({
         _id: { $in: Object.keys(ordersBySeller) },
@@ -52,15 +52,20 @@ export const OrderService = {
       const createdOrders = [];
 
       for (const sellerId in ordersBySeller) {
+        const orderItems = ordersBySeller[sellerId];
+
         const sellerProducts = dbProducts.filter((product) =>
-          ordersBySeller[sellerId].some((productId) => productId.toString() === product._id.toString())
+          orderItems.some((item) => item.id.toString() === product._id.toString())
         );
 
-        if (sellerProducts.length !== ordersBySeller[sellerId].length) {
+        if (sellerProducts.length !== orderItems.length) {
           throw new AppError("Some products are no longer available", 400);
         }
 
-        const subtotal = sellerProducts.reduce((s, p) => s + p.price, 0);
+        const subtotal = sellerProducts.reduce((s, p) => {
+          const item = orderItems.find((i) => i.id.toString() === p._id.toString());
+          return s + p.price * item.quantity;
+        }, 0);
         const { providerId, shippingFee } = await ProviderService.calculateShippingFee(subtotal);
 
         const total = subtotal + shippingFee;
@@ -72,11 +77,14 @@ export const OrderService = {
             {
               ownerId: userId,
               sellerId,
-              products: sellerProducts.map((p) => ({
-                id: p._id,
-                quantity: 1,
-                priceAtOrder: p.price,
-              })),
+              products: sellerProducts.map((p) => {
+                const item = orderItems.find((i) => i.id.toString() === p._id.toString());
+                return {
+                  id: p._id,
+                  quantity: item.quantity,
+                  priceAtOrder: p.price,
+                };
+              }),
               subtotal,
               total,
               status: "created",
@@ -97,7 +105,7 @@ export const OrderService = {
           userId,
           sellerId,
           subtotal,
-          productIds: sellerProducts.map((p) => p._id.toString()),
+          products: orderItems.map((i) => ({ id: i.id.toString(), quantity: i.quantity })),
         });
       }
 
