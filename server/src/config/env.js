@@ -20,5 +20,7 @@ export const env = {
   CLOUD_NAME: process.env.CLOUD_NAME,
   CLOUD_API_KEY: process.env.CLOUD_API_KEY,
   CLOUD_API_SECRET: process.env.CLOUD_API_SECRET,
+  RABBITMQ_URL: process.env.RABBITMQ_URL,
+  RABBITMQ_QUEUE: process.env.RABBITMQ_QUEUE,
   COOKIE_SECURE: parseBoolean(process.env.COOKIE_SECURE, process.env.NODE_ENV === "production"),
 };
