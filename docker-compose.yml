@@ -144,10 +144,4 @@ services:
 volumes:
   mongo_data:
   redis_data:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-
-volumes:
-  mongo_data:
-  redis_data:
   grafana_data:
->>>>>>> feature/backend
