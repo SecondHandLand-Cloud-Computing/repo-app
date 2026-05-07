@@ -18,7 +18,7 @@ export const WalletService = {
     wallet.balance += amount;
 
     if (wallet.balance < 0) throw new AppError("Insufficient wallet balance", 400);
-    wallet.save();
+    await wallet.save();
 
     return wallet;
   },

@@ -15,9 +15,26 @@ export const getCart = asyncHandler(async (req, res) => {
 export const addToCart = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const userId = req.user.sub;
-  const result = await CartService.addToCart(userId, id);
+  const { quantity = 1 } = req.body ?? {};
+
+  const result = await CartService.addToCart(userId, id, Number(quantity));
   return res.status(200).json({
     message: "Add to cart successfully",
+    data: result,
+  });
+});
+
+export const updateCartQuantity = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.sub;
+  const { quantity } = req.body ?? {};
+  if (quantity === undefined || isNaN(Number(quantity))) {
+    return res.status(400).json({ message: "quantity is required" });
+  }
+
+  const result = await CartService.updateQuantity(userId, id, Number(quantity));
+  return res.status(200).json({
+    message: "Cart quantity updated successfully",
     data: result,
   });
 });

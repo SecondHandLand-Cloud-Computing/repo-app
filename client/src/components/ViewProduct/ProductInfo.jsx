@@ -5,8 +5,11 @@ import { CartContext } from "../../context/CartContext";
 
 export default function ProductInfo({ product, owner }) {
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null); // ✅ Thêm state message
+  const [message, setMessage] = useState(null);
   const { fetchCart } = useContext(CartContext);
+
+  const isOutOfStock = product.quantity === 0;
+  const isLowStock = product.quantity > 0 && product.quantity <= 3;
 
   const handleAddToCart = async () => {
     try {
@@ -47,15 +50,37 @@ export default function ProductInfo({ product, owner }) {
 
       {/* ACTIONS */}
       <div className="flex flex-col gap-3 mt-6">
+        <div className="flex items-center gap-4 mb-2">
+          <span className={`font-medium ${isOutOfStock ? 'text-red-500' : 'text-green-600'}`}>
+            {isOutOfStock ? "Out of Stock" : `${product.quantity} items available`}
+          </span>
+          {isLowStock && (
+            <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded">
+              Low Stock
+            </span>
+          )}
+        </div>
+
         <div className="flex gap-3">
           <button
             onClick={handleAddToCart}
-            disabled={loading}
-            className="flex-1 border border-gray-400 px-5 py-3 rounded-md hover:bg-gray-100 disabled:opacity-50"
+            disabled={loading || isOutOfStock}
+            className={`flex-1 border px-5 py-3 rounded-md transition-colors ${
+              isOutOfStock
+                ? "bg-gray-200 text-gray-500 border-gray-200 cursor-not-allowed"
+                : "border-gray-400 hover:bg-gray-100 disabled:opacity-50"
+            }`}
           >
             {loading ? "Adding..." : "Add To Cart"}
           </button>
-          <button className="flex-1 bg-[#7dac8c] text-white px-5 py-3 rounded-md hover:bg-green-200">
+          <button 
+            disabled={isOutOfStock}
+            className={`flex-1 px-5 py-3 rounded-md transition-colors ${
+              isOutOfStock
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-[#7dac8c] text-white hover:bg-green-200"
+            }`}
+          >
             Buy Now
           </button>
         </div>

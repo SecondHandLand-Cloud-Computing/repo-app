@@ -35,7 +35,7 @@ export const AuthService = {
       throw new AppError("User not found", 404);
     }
 
-    if (await user.comparePassword(oldPassword)) {
+    if (!(await user.comparePassword(oldPassword))) {
       throw new AppError("Incorrect current password", 401);
     }
 

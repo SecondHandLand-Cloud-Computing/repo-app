@@ -29,11 +29,22 @@ const productSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    stock: {
+      type: Number,
+      min: 0,
+      default: 1,
+    },
     imagePublicId: { type: String, required: true },
 
     status: {
       type: String,
-      enum: ["active", "pending", "sold", "rejected", "deleted"],
+      enum: ["active", "pending", "rejected", "deleted"],
       default: "pending",
     },
   },

@@ -23,7 +23,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=5000
-      - MONGO_URI=mongodb://mongo:27017/cloud_db
+      - MONGO_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/admin?authSource=admin
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - JWT_SECRET=local-dev-secret-change-me
@@ -34,18 +34,23 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    deploy: # Giới hạn tài nguyên để mô phỏng sự cố CPU Throttling
+      resources:
+        limits: 
+          cpus: '1'   
+          memory: '1024M'
     restart: unless-stopped
 
   mongo:
-    image: mongo:6.0
+    image: mongo:7.0
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db # Ánh xạ ổ cứng thật vào container để dữ liệu không bị mất khi tắt máy
     environment:
       - MONGO_INITDB_DATABASE=cloud_db
-      - MONGO_INITDB_ROOT_USERNAME:${MONGO_USER}
-      - MONGO_INITDB_ROOT_PASSWORD:${MONGO_PASSWORD}
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
     healthcheck:
       # KIỂM TRA: Cứ mỗi 10s, dùng lệnh 'mongosh' gõ cửa hỏi xem DB đã sẵn sàng nhận request chưa
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
@@ -80,6 +85,38 @@ services:
       - redis
     restart: unless-stopped
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: unless-stopped
+
+  mongodb-exporter:
+    image: bitnami/mongodb-exporter:latest  
+    ports:
+      - "9216:9216"
+    environment:
+      - MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/admin?authSource=admin
+      - MONGODB_ENABLE_COLLECTION_STATS=true
+    command:
+      - --mongodb.uri=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/admin?authSource=admin
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro #để cAdvisor biết container nào đang chạy
+      - /sys:/sys:ro #lấy được: CPU usage, memory limit, throttling
+      - /var/lib/docker/:/var/lib/docker:ro #map container → metrics
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:latest
     ports:
@@ -90,6 +127,7 @@ services:
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
     restart: unless-stopped
 
   prometheus:
