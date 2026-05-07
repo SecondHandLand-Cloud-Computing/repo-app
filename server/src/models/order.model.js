@@ -7,6 +7,11 @@ const orderSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    sellerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     products: [
       {
         id: {
@@ -37,7 +42,7 @@ const orderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["created", "confirmed", "shipping", "completed", "cancelled", "refunded"],
+      enum: ["created", "processing", "confirmed", "shipping", "completed", "cancelled", "refunded"],
       default: "created",
     },
     shipping: {

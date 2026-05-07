@@ -85,6 +85,13 @@ services:
       - redis
     restart: unless-stopped
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: unless-stopped
+
   mongodb-exporter:
     image: bitnami/mongodb-exporter:latest  
     ports:

@@ -44,6 +44,7 @@ export const seed = async () => {
         description: product.description,
         price: product.price,
         quantity: getQuantity(product.status, product.quantity),
+        stock: product.status === "sold" ? 0 : 1,
         imagePublicId: product.imagePublicId,
         status: mapStatus(product.status),
         createdBy: customer._id,
