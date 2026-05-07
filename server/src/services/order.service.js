@@ -24,6 +24,9 @@ export const OrderService = {
       for (const p of products) {
         const sellerId = p.createdBy.toString();
         if (!ordersBySeller[sellerId]) ordersBySeller[sellerId] = [];
+        
+        // FIX: Đẩy nguyên Object { id, quantity } vào mảng thay vì chỉ đẩy mỗi id
+        // Để giữ lại thông tin số lượng khách muốn mua
         ordersBySeller[sellerId].push({ id: p.id, quantity: p.quantity || 1 });
         productIds.push(p.id);
       }
@@ -62,6 +65,8 @@ export const OrderService = {
           throw new AppError("Some products are no longer available", 400);
         }
 
+        // FIX: Tính Subtotal chính xác = Giá tiền (price) * Số lượng khách mua (item.quantity)
+        // Code cũ bị lỗi chỉ tính: s + p.price
         const subtotal = sellerProducts.reduce((s, p) => {
           const item = orderItems.find((i) => i.id.toString() === p._id.toString());
           return s + p.price * item.quantity;
@@ -77,6 +82,8 @@ export const OrderService = {
             {
               ownerId: userId,
               sellerId,
+              // FIX: Map đúng quantity của từng món hàng để lưu vào DB Order
+              // Code cũ hardcode quantity: 1 cho mọi sản phẩm
               products: sellerProducts.map((p) => {
                 const item = orderItems.find((i) => i.id.toString() === p._id.toString());
                 return {
@@ -100,6 +107,8 @@ export const OrderService = {
 
         createdOrders.push(order);
 
+        // FIX: Gửi Message cho RabbitMQ với mảng products chứa đủ {id, quantity}
+        // Để Worker biết mà trừ kho chính xác
         jobs.push({
           orderId: order._id.toString(),
           userId,

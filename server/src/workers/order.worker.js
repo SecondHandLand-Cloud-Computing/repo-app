@@ -17,6 +17,8 @@ const processOrderJob = async (job) => {
       return;
     }
 
+    // FIX: Dùng bulkWrite để có thể trừ đi chính xác (-p.quantity)
+    // cho mỗi loại sản phẩm khác nhau. (Code cũ dùng updateMany chỉ trừ được số lượng cố định)
     const bulkOps = job.products.map((p) => ({
       updateOne: {
         filter: { _id: p.id },

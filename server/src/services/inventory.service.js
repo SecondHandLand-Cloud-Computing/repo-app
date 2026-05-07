@@ -63,6 +63,8 @@ export const InventoryService = {
     );
   },
 
+  // FIX: Lấy chính xác số lượng (quantity) mà khách hàng muốn mua từ Frontend
+  // Thay vì gán cứng quantity: 1 như code cũ
   normalizeItems(items) {
     return items.map((item) => ({
       productId: item.id ? item.id.toString() : item._id.toString(),
@@ -70,6 +72,8 @@ export const InventoryService = {
     }));
   },
 
+  // FIX: Hàm reserve giờ nhận thêm dbProducts để cache đúng số lượng tồn thật của kho, 
+  // đồng thời truyền orderItems để giữ chỗ đúng số lượng khách mua
   async reserve(orderItems, dbProducts) {
     const items = this.normalizeItems(orderItems);
     if (items.length === 0) return items;
