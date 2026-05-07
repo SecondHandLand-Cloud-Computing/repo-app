@@ -71,7 +71,10 @@ export const customerApi = {
 // =======================
 export const cartApi = {
   getCart: () => axiosClient.get("/cart/me"),
-  addToCart: (productId) => axiosClient.put(`/cart/${productId}`),
+  addToCart: (productId, quantity = 1) =>
+    axiosClient.put(`/cart/${productId}`, { quantity }),
+  updateQuantity: (productId, quantity) =>
+    axiosClient.patch(`/cart/${productId}/quantity`, { quantity }),
   removeOne: (productId) => axiosClient.delete(`/cart/${productId}`),
 };
 

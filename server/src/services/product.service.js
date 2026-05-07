@@ -4,13 +4,30 @@ import { Product } from "../models/product.model.js";
 import { Cart } from "../models/cart.model.js";
 import { CloudinaryService } from "./cloudinary.service.js";
 import { AppError } from "../utils/AppError.js";
+import { RedisService } from "./redis.service.js";
+import { measureDB } from "../monitoring/dbMetrics.js";
 
 export const ProductService = {
   async getById(productId, user) {
-    const product = await Product.findById(productId)
-      .populate("createdBy", "name _id address avatarPublicId")
-      .populate("categoryId", "name")
-      .lean();
+    let currentVersion = await RedisService.get(`product_version:${productId}`);
+    if (!currentVersion) {
+      currentVersion = 1;
+    }
+    // kiem tra redis truoc 
+    const cacheKey = `product_detail:${productId}:v${currentVersion}`;
+    let product = await RedisService.get(cacheKey);
+    // neu redis khong co du lieu -> truy van mongoDB
+    if (!product) {
+      product = await measureDB("findById", "products", Product.findById(productId)
+        .populate("createdBy", "name _id address avatarPublicId")
+        .populate("categoryId", "name")
+        .lean());
+      
+      // truy van mongoDB va co du lieu -> luu vao redis
+      if (product) {
+        await RedisService.set(cacheKey, product, 60)
+      }
+    }
 
     if (!product) {
       throw new AppError("Product not found", 404);
@@ -43,7 +60,7 @@ export const ProductService = {
     return product;
   },
 
-  async create(user, categoryId, name, description, price, image) {
+  async create(user, categoryId, name, description, price, quantity, image) {
     if (user.role === "admin") throw new AppError("Only customer can create product", 400);
 
     const uploadResult = await CloudinaryService.uploadFile(image, "images");
@@ -54,6 +71,7 @@ export const ProductService = {
       name: name,
       description: description,
       price: price,
+      quantity: quantity ?? 0,
       imagePublicId: uploadResult.public_id,
     });
 
@@ -61,7 +79,7 @@ export const ProductService = {
   },
 
   async update(user, productId, payload, image = null) {
-    const product = await Product.findById(productId).lean();
+    const product = await measureDB("findById", "products", Product.findById(productId).lean());
 
     if (!product) {
       throw new AppError("Product not found", 404);
@@ -80,6 +98,8 @@ export const ProductService = {
 
     if (payload.price !== undefined) updateData.price = Number(payload.price);
 
+    if (payload.quantity !== undefined) updateData.quantity = Number(payload.quantity);
+
     // update alway set status pending
     updateData.status = "pending";
     if (payload.status && user.role === "admin") {
@@ -92,14 +112,14 @@ export const ProductService = {
       }
       updateData.imagePublicId = uploadResult.public_id;
     }
-    const updatedProduct = await Product.findByIdAndUpdate(
+    const updatedProduct = await measureDB("findOneAndUpdate", "products", Product.findByIdAndUpdate(
       productId,
       { $set: updateData },
       {
         new: true,
         runValidators: true,
       }
-    ).lean();
+    ).lean());
 
     // remove product all cart if product not active
     if (updatedProduct.status !== "active") {
@@ -109,6 +129,9 @@ export const ProductService = {
       );
     }
 
+    // thêm version mới trong redis vì dữ liệu đã bị sửa đổi
+    await RedisService.set(`product_version:${productId}`, Date.now());
+
     return {
       ...updatedProduct,
       imagePublicUrl: CloudinaryService.generateSignedUrl(updatedProduct.imagePublicId),
@@ -116,19 +139,37 @@ export const ProductService = {
   },
 
   async delete(productId) {
-    const product = await Product.findByIdAndDelete(productId);
+    const product = await measureDB(
+      "findOneAndDelete",
+      "products",
+      Product.findByIdAndDelete(productId)
+    );
 
     await CloudinaryService.deleteFile(product.imagePublicId);
 
-    // remove product all cart
-    await Cart.updateMany({ "products.id": productId }, { $pull: { products: { productId } } });
+    // remove product from all carts
+    await measureDB(
+      "updateMany",
+      "carts",
+      Cart.updateMany({ "products.id": productId }, { $pull: { products: { id: productId } } })
+    );
+
+    // vô hiệu hóa cache bằng cách cập nhật version
+    await RedisService.set(`product_version:${productId}`, Date.now());
   },
 
   async getList(user, page, limit, search, categoryId) {
+    // tạo cache key động để phân biệt
+    const cacheKey = `product_list:role_${user?.role}:u_${user?.id}:p_${page}:l_${limit}:s_${search || ''}:c_${categoryId || ''}`;
+    const cacheData = await RedisService.get(cacheKey);
+    if (cacheData) {
+      return cacheData;
+    }
+
+    // neu khong co cache -> truy van mongoDB va luu vao redis
     const skip = (page - 1) * limit;
-
     const filter = {};
-
+    
     // admin can view all status
     if (user.role !== "admin") {
       filter.status = "active";
@@ -148,14 +189,15 @@ export const ProductService = {
     }
 
     const [items, total] = await Promise.all([
-      Product.find(filter)
+      measureDB("find", "products", Product.find(filter)
         .populate("createdBy", "name _id address")
-        .sort({ createdAt: -1 })
+        .populate("categoryId", "name")
+        .sort({ quantity: -1, createdAt: -1 }) // Ưu tiên hàng còn tồn kho trước, sau đó mới đến mới nhất
         .skip(skip)
         .limit(limit)
-        .lean(),
-
-      Product.countDocuments(filter),
+        .lean()),
+      
+      measureDB("countDocuments", "products", Product.countDocuments(filter)),
     ]);
 
     // attach url
@@ -170,7 +212,7 @@ export const ProductService = {
       };
     });
 
-    return {
+    const finalResult = {
       data,
       pagination: {
         page,
@@ -178,25 +220,48 @@ export const ProductService = {
         total,
         totalPages: Math.ceil(total / limit),
       },
-    };
+    }
+
+    // luu vao redis
+    await RedisService.set(cacheKey, finalResult, 60);
+
+    return finalResult;
   },
 
   async getMyList(userId) {
-    const products = await Product.find({
+    // tao cache key
+    const cacheKey = `my_product_list:${userId}`;
+    // kiem tra redis 
+    const cacheData = await RedisService.get(cacheKey);
+    if (cacheData) {
+      return cacheData;
+    }
+
+    // neu khong co cache -> truy van mongoDB va luu vao redis
+    const products = await measureDB("find", "products", Product.find({
       createdBy: new mongoose.Types.ObjectId(userId),
       status: { $ne: "deleted" },
     })
       .populate("categoryId", "name")
       .sort({ createdAt: -1 })
-      .lean();
+      .lean());
 
-    return products.map((product) => ({
+    const finalResult = products.map((product) => ({
       ...product,
       imagePublicUrl: CloudinaryService.generateSignedUrl(product.imagePublicId),
       category: {
         _id: product.categoryId._id,
         name: product.categoryId.name,
       },
-    }));
+    }))
+
+    // TTL ngắn hơn (15s) so với getList (60s) là có chủ đích:
+    // Đây là dữ liệu cá nhân — user kỳ vọng thấy thay đổi gần như ngay
+    // sau khi tạo / sửa / xóa sản phẩm của mình. Cache danh sách này
+    // không bị invalidate chủ động khi có mutation, nên TTL ngắn đóng
+    // vai trò safety net để dữ liệu không bị stale quá lâu.
+    await RedisService.set(cacheKey, finalResult, 15);
+
+    return finalResult
   },
 };

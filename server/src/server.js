@@ -4,6 +4,7 @@ import { createApp } from "./app.js";
 import { connectDB, disconnectDB } from "./config/db.js";
 import { env } from "./config/env.js";
 import { logger } from "./utils/logger.js";
+import { startOrderWorker } from "./workers/order.worker.js";
 
 const bootstrap = async () => {
   await connectDB();
@@ -12,6 +13,10 @@ const bootstrap = async () => {
 
   server.listen(env.PORT, () => {
     logger.info(`Server listening on port ${env.PORT}`);
+  });
+
+  startOrderWorker().catch((err) => {
+    logger.error(`[RabbitMQ] Failed to start order worker: ${err.message}`);
   });
 
   const shutdown = async (signal) => {
