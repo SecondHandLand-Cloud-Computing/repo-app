@@ -5,7 +5,7 @@ x-backend-common: &backend-common
   env_file:
     - ./server/.env
   environment:
-    NODE_ENV: production
+    NODE_ENV: development
     PORT: "5000"
     MONGO_URI: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/admin?authSource=admin
     REDIS_HOST: redis
@@ -48,7 +48,7 @@ services:
     <<: *backend-common
     container_name: backend-1
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: "5000"
       INSTANCE_ID: "1"
       MONGO_URI: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/admin?authSource=admin
@@ -63,7 +63,7 @@ services:
     <<: *backend-common
     container_name: backend-2
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: "5000"
       INSTANCE_ID: "2"
       MONGO_URI: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/admin?authSource=admin
@@ -78,7 +78,7 @@ services:
     <<: *backend-common
     container_name: backend-3
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: "5000"
       INSTANCE_ID: "3"
       MONGO_URI: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/admin?authSource=admin

@@ -12,6 +12,7 @@ import { env } from "../config/env.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { signToken } from "../utils/jwt.js";
 import { generateOtpAndHash, generateToken } from "../utils/crypto.js";
+import { logger } from "../utils/logger.js";
 
 export const sendOTP = asyncHandler(async (req, res) => {
   const { type } = req.query;
@@ -40,10 +41,21 @@ export const sendOTP = asyncHandler(async (req, res) => {
 
   await RedisService.set(key, value, env.OTP_EXPIRE_SEC);
 
-  // Send OTP email
-  await MailService.sendOtp(mail, otpRaw);
+  // Gửi OTP qua email — nếu lỗi ở dev thì log và bỏ qua, không block flow
+  const isDev = env.NODE_ENV !== "production";
+  try {
+    await MailService.sendOtp(mail, otpRaw);
+  } catch (err) {
+    if (!isDev) throw err;
+    logger.warn(`[AUTH] Mail skipped in dev mode: ${err.message}`);
+  }
 
-  return res.status(200).json({ message: "OTP sent", token: token });
+  return res.status(200).json({
+    message: "OTP sent",
+    token,
+    // Trả OTP thẳng trong dev để test không cần cấu hình email
+    ...(isDev && { otp: otpRaw }),
+  });
 });
 
 export const verifyOtp = asyncHandler(async (req, res) => {
