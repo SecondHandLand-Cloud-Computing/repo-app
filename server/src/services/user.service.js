@@ -26,9 +26,7 @@ export const UserService = {
   },
 
   async getByMail(mail) {
-    const user = await User.findOne({ mail: mail });
-    if (!user) throw new AppError("User not found", 404);
-    return user;
+    return User.findOne({ mail: mail });
   },
 
   async delete(id) {

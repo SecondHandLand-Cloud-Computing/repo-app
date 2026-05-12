@@ -124,7 +124,11 @@ services:
     environment:
       - GF_SECURITY_ALLOW_EMBEDDING=true
       - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_PLUGINS_CHECK_FOR_UPDATES=false
+      - GF_FEATURE_TOGGLES_ENABLE=
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning

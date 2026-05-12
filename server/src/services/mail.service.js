@@ -23,7 +23,7 @@ export const MailService = {
     return compiled(data);
   },
 
-  async sendTemplate(to, subject, templateName, data, retries = 2) {
+  async sendTemplate(to, subject, templateName, data, retries = 0) {
     const html = this.loadTemplate(templateName, data);
     try {
       const info = await transporter.sendMail({

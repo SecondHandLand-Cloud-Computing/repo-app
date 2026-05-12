@@ -9,6 +9,14 @@ scrape_configs:
     static_configs:
       - targets: ["backend:5000"]
 
+  # Cluster mode: 3 backend instances riêng biệt
+  - job_name: "backend-cluster"
+    static_configs:
+      - targets: ["backend-1:5000", "backend-2:5000", "backend-3:5000"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
   - job_name: "redis"
     static_configs:
       - targets: ["redis-exporter:9121"]
