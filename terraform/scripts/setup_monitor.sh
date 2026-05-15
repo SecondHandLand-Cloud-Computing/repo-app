@@ -7,8 +7,10 @@ sudo apt install -y docker.io docker-compose git
 git clone ${monitor_url} /home/ubuntu/monitoring
 cd /home/ubuntu/monitoring
 
-# Bơm biến môi trường DB vào file .env
-echo "MONGO_URI=${mongo_uri}" > .env
+# Bơm biến môi trường DB vào file .env an toàn
+cat << 'EOF' > .env
+MONGO_URI=${mongo_uri}
+EOF
 
 # Chạy Docker Compose cho Prometheus, Grafana, Exporters
 sudo docker-compose up -d

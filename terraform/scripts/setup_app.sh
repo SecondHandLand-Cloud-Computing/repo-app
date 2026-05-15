@@ -7,9 +7,12 @@ sudo apt install -y docker.io docker-compose git
 git clone ${repo_app_url} /home/ubuntu/repo-app
 cd /home/ubuntu/repo-app/server
 
-# Bơm Secrets từ Terraform vào biến môi trường (.env)
-echo "MONGO_URI=${mongo_uri}" > .env
-echo "JWT_SECRET=${jwt_secret}" >> .env
+# Bơm Secrets từ Terraform vào biến môi trường (.env) an toàn tuyệt đối
+echo "" >> .env
+cat << 'EOF' >> .env
+MONGO_URI=${mongo_uri}
+JWT_SECRET=${jwt_secret}
+EOF
 
 # Chạy Docker Compose
 cd ..
