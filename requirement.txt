@@ -1,0 +1,75 @@
+Đây là "Kịch bản Chung kết" (The Master Plan). Kịch bản này đã tích hợp toàn bộ các vũ khí tối tân nhất mà chúng ta đã bàn: Terraform (IaC), AWS Auto Scaling (ASG), Application Load Balancer (ALB), và Hệ thống Monitoring Đa tầng (Prometheus + Grafana + Database/Cache Exporters).
+Với kịch bản này, bạn sẽ trình diễn tư duy của một Cloud/DevOps Engineer thực thụ chứ không chỉ là một lập trình viên biết xài Docker.
+
+GIAI ĐOẠN 1: CHUẨN BỊ TẠI LOCAL (Architecture & Code)
+Trước ngày báo cáo, thư mục dự án của bạn trên máy tính cần được cấu trúc rõ ràng:
+1. Chuẩn bị Mã nguồn (Đẩy lên GitHub):
+Repo App: Chứa code Node.js và file docker-compose.yml (gồm 3 container: Nginx Proxy, Node.js Backend, và cAdvisor ở port 8080).
+Repo Monitor: Chứa file docker-compose.yml (gồm Prometheus, Grafana, MongoDB Exporter, Redis Exporter).
+2. Chuẩn bị Terraform Code (/terraform):
+Cấu hình Terraform để tạo ra:
+VPC & Security Groups:
+SG-Monitor: Mở port 22, 3000 (Grafana).
+SG-App: Mở port 22, 80 (cho ALB gọi vào), 8080 (cho Prometheus gọi vào).
+SG-ALB: Mở port 80 (cho Internet truy cập).
+Monitor Server (EC2 Độc lập): Được gán IAM Role có quyền ec2:DescribeInstances (để Prometheus tự tìm IP máy App). Chạy User Data tự cài Docker và pull Repo Monitor.
+Application Load Balancer (ALB): Điểm vào duy nhất của hệ thống.
+Launch Template & Auto Scaling Group (ASG): Bản thiết kế App Server (cài Docker, pull Repo App) và luật Scale (Min: 1, Max: 3, Policy: CPU > 50%).
+
+GIAI ĐOẠN 2: TRIỂN KHAI HẠ TẦNG (The Automation)
+(Thực hiện trước khi bắt đầu thuyết trình khoảng 5-10 phút để server có thời gian khởi động)
+Thao tác: Mở Terminal tại thư mục terraform, gõ lệnh:
+Bash
+terraform apply -auto-approve
+
+
+
+
+Thao tác: Lấy 2 đường link quan trọng từ output của Terraform:
+ALB_DNS_Name (Link Website/API chính).
+Monitor_Public_IP (Link vào Grafana).
+
+GIAI ĐOẠN 3: SHOWTIME (Kịch bản Thuyết trình Chi tiết)
+Bạn cần mở sẵn 4 Tabs trên trình duyệt:
+(1) Website (ALB DNS) | (2) Locust | (3) Grafana Dashboard | (4) AWS Console (Màn hình EC2).
+Bước 1: Giới thiệu Baseline (Trạng thái bình thường)
+Thao tác: Chuyển qua tab AWS Console, chỉ vào danh sách EC2.
+Lời thoại: "Chào thầy cô, thay vì setup thủ công, em đã dùng Terraform để tự động hóa toàn bộ hạ tầng. Hiện tại, hệ thống đang có 1 Monitor Server và duy nhất 1 App Server đang chạy dưới sự quản lý của Auto Scaling Group để tiết kiệm chi phí."
+Thao tác: Mở tab Grafana (Dashboard tổng hợp).
+Lời thoại: "Đây là hệ thống giám sát đa tầng. Lúc này tải đang thấp, CPU của container Backend chỉ ở mức ~1%. Đồng thời, các thông số của MongoDB và Redis cũng đang ở trạng thái nghỉ."
+Bước 2: Dội bom tải (The Trigger)
+Thao tác: Chuyển sang tab Locust. Nhập DNS của ALB. Set 2000 Users, Spawn Rate 50. Bấm Start.
+Thao tác: Chuyển sang tab Grafana.
+Lời thoại: "Bây giờ em sẽ dùng Locust để giả lập một đợt truy cập tăng đột biến. Thầy cô có thể nhìn vào Grafana, biểu đồ CPU của App Server bắt đầu dựng đứng và chạm ngưỡng quá tải. Tuy nhiên..."
+Thao tác: Cuộn xuống phần đồ thị của DB/Cache.
+Lời thoại: "Nhờ có MongoDB và Redis Exporter, em có thể khẳng định thắt cổ chai nằm ở CPU của máy chủ tính toán, chứ không phải do Database. Số lượng connection tới DB vẫn ổn định và Redis vẫn duy trì tỷ lệ cache hit cao."
+Bước 3: AWS Auto Scaling ra tay (The Magic)
+Thao tác: Chuyển sang tab AWS Console (F5 lại trang).
+Lời thoại: "Bởi vì hệ thống đã được lập trình sẵn các CloudWatch Alarms, khi nhận thấy CPU > 50% trong thời gian quy định, AWS Auto Scaling Group đang tự động khởi tạo thêm các App Server mới (chỉ vào các máy đang hiện trạng thái 'Pending' hoặc 'Initializing'). Em hoàn toàn không cần gõ lệnh thủ công."
+Bước 4: Prometheus Tự động nhận diện & Zero-Downtime
+Thao tác: Chuyển về lại tab Grafana. Đợi đến khi máy mới boot xong.
+Lời thoại: "Thầy cô chú ý biểu đồ CPU. Ngay khi App Server mới khởi động xong, Prometheus nhờ tính năng Service Discovery đã tự động 'tìm thấy' máy mới mà không cần ai cấu hình lại IP. Đường line CPU thứ 2 và thứ 3 xuất hiện."
+Thao tác: Chỉ vào biểu đồ CPU tổng đang hạ dần xuống mức 30-40%. Chuyển sang tab Website và F5 liên tục để thấy web vẫn mượt.
+Lời thoại: "Tải đã được Application Load Balancer chia đều. Hệ thống tự động phục hồi tốc độ nhanh chóng và người dùng không hề gặp phải bất kỳ giây phút gián đoạn nào (Zero-Downtime)."
+
+GIAI ĐOẠN 4: HỦY DIỆT & CHỐT HẠ (Cost Optimization)
+Đây là đòn "knock-out" cuối cùng để khẳng định tư duy quản trị.
+Thao tác: Tắt Locust. Mở lại Terminal tại máy tính cá nhân.
+Thao tác: Gõ lệnh:
+Bash
+terraform destroy -auto-approve
+
+
+
+
+Lời thoại: "Trong thực tế, khi hết đợt cao điểm, Auto Scaling sẽ tự động xóa bớt máy để tiết kiệm tiền. Còn bây giờ, khi buổi demo kết thúc, em chỉ cần một lệnh destroy duy nhất. Terraform sẽ dọn dẹp sạch sẽ toàn bộ Load Balancer, EC2, và Security Groups. Chi phí cho toàn bộ buổi báo cáo này chỉ vỏn vẹn vài nghìn đồng tiền Việt. Đó là sức mạnh của Cloud Computing và DevOps."
+
+⚠️ CHECKLIST SINH TỬ TRƯỚC GIỜ G:
+Quyền IAM (Cực kỳ quan trọng): Đảm bảo Monitor Server có Role cho phép ec2:DescribeInstances để Prometheus không bị mù.
+Cooldown Period của ASG: Set default_cooldown = 60 (hoặc thấp hơn) trong Terraform để AWS đẻ máy mới thật nhanh, tránh việc hội đồng phải ngồi nhìn màn hình trắng chờ 5 phút.
+Target Group Health Check: Chắc chắn backend Node.js của bạn có một API trả về status 200 (ví dụ: GET /health) để ALB biết máy mới đã sẵn sàng nhận khách.
+Bảo mật Token: Các file .tfvars chứa GitHub Token, MongoDB URI, Access Key phải được add vào .gitignore. Tuyệt đối không push lên GitHub.
+Rehearsal (Diễn tập): Hãy tự chạy kịch bản terraform apply -> Locust -> terraform destroy ở nhà ít nhất 3 lần để căn chuẩn xác thời gian máy boot (thường mất 2-3 phút) để bạn biết cách "câu giờ" bằng lời thoại cho hợp lý.
+Kịch bản này là một "Masterpiece" cho một đồ án. Chúc bạn tỏa sáng rực rỡ trước hội đồng! Nếu trong quá trình viết file cấu hình (Terraform, Prometheus) có báo lỗi, cứ nhắn lên đây tôi sẽ debug cùng bạn.
+
+
