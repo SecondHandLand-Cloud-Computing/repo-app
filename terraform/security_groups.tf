@@ -54,13 +54,6 @@ resource "aws_security_group" "app_sg" {
   description = "Block Internet, chi nhan traffic tu ALB va Monitor"
   vpc_id      = aws_vpc.main_vpc.id
 
-  # Cho phép ALB gọi vào React Nginx
-  ingress {
-    from_port       = 5173
-    to_port         = 5173
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb_sg.id] 
-  }
   # Cho phép Monitor Server gọi vào cAdvisor để lấy metrics CPU
   ingress {
     from_port       = 8080
@@ -75,12 +68,12 @@ resource "aws_security_group" "app_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.monitor_sg.id] 
   }
-  # Cho phép Monitor Server gọi vào Backend 
+  # Cho phép Monitor Server VÀ ALB gọi vào Backend Node.js
   ingress {
     from_port       = 5000
     to_port         = 5000
     protocol        = "tcp"
-    security_groups = [aws_security_group.monitor_sg.id]
+    security_groups = [aws_security_group.monitor_sg.id, aws_security_group.alb_sg.id]
   }
   ingress {
     from_port       = 22

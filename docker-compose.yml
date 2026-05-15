@@ -1,23 +1,23 @@
 version: "3.8"
 
 services:
-  frontend:
-    build:
-      context: ./client
-      dockerfile: Dockerfile
-    image: cloud_frontend:latest
-    ports:
-      - "5173:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
+  # frontend:
+  #   build:
+  #     context: ./client
+  #     dockerfile: Dockerfile
+  #   image: cloud_frontend:latest
+  #   ports:
+  #     - "5173:80"
+  #   depends_on:
+  #     - backend
+  #   restart: unless-stopped
 
   backend:
     build:
       context: ./server
     image: cloud_backend:latest
-    # ports:
-    #   - "5001:5000"
+    ports:
+      - "5000:5000"
     env_file:
       - ./server/.env
     environment:
@@ -34,11 +34,6 @@ services:
       #   condition: service_healthy
       redis:
         condition: service_healthy
-    deploy: # Giới hạn tài nguyên để mô phỏng sự cố CPU Throttling
-      resources:
-        limits:
-          cpus: "2" # Mở hạn mức lên 2 vCPU (do t3.micro có 2 vCPU) để dễ dàng kích hoạt Auto Scaling
-          memory: "1024M"
     restart: unless-stopped
 
   # mongo:

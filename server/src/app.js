@@ -17,7 +17,7 @@ export const createApp = () => {
 
   app.disable("x-powered-by"); // Security best practice
   app.use(helmet()); // Security headers
-  app.use(cors({ origin: env.CORS_ORIGIN, credentials: true })); // CORS
+  app.use(cors({ origin: true, credentials: true })); // CORS (Tự động nhận diện và cho phép mọi tên miền từ S3)
   app.use(express.json({ limit: "1mb" })); // Body parser
   if (env.NODE_ENV !== "production") {
     app.use(morgan("dev")); // Logger
@@ -29,6 +29,9 @@ export const createApp = () => {
 
   // Endpoint để Prometheus scrape metrics
   app.get("/metrics", metricsEndpoint);
+
+  // Health check endpoint cho AWS ALB
+  app.get("/", (req, res) => res.status(200).send("OK"));
 
   // Routes
   app.use("/api", routes);

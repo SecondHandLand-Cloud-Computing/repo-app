@@ -4,6 +4,7 @@
 resource "aws_instance" "monitor_server" {
   ami                  = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
+  key_name               = "second-hand-land-key-pair"
   subnet_id              = aws_subnet.public_subnet_1.id
   vpc_security_group_ids = [aws_security_group.monitor_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.prometheus_profile.name # Cấp quyền IAM
@@ -30,7 +31,7 @@ resource "aws_lb" "app_alb" {
 # Đích đến: Lắng nghe ở port 5173 và check health ở đường dẫn gốc "/"
 resource "aws_lb_target_group" "app_tg" {
   name     = "cloud-app-tg"
-  port     = 5173
+  port     = 5000
   protocol = "HTTP"
   vpc_id   = aws_vpc.main_vpc.id
   health_check {
@@ -62,6 +63,7 @@ resource "aws_launch_template" "app_template" {
   name          = "cloud-app-template"
   image_id      = data.aws_ami.ubuntu.id
   instance_type = "t3.micro" # Dùng t3.micro (2 vCPU)
+  key_name      = "second-hand-land-key-pair"
   vpc_security_group_ids = [aws_security_group.app_sg.id]
 
   # User Data: Tự cài Docker, pull repo App và bơm Secrets
