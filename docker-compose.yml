@@ -16,48 +16,48 @@ services:
     build:
       context: ./server
     image: cloud_backend:latest
-    ports:
-      - "5001:5000"
+    # ports:
+    #   - "5001:5000"
     env_file:
       - ./server/.env
     environment:
       - NODE_ENV=development
       - PORT=5000
-      - MONGO_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/admin?authSource=admin
+      - MONGO_URI=${MONGO_URI}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - JWT_SECRET=local-dev-secret-change-me
+      - JWT_SECRET=${JWT_SECRET}
       - COOKIE_SECURE=false
     depends_on:
       # Khóa bảo vệ: Ép Backend phải kiên nhẫn chờ đến khi Mongo và Redis báo "healthy" thì mới được chạy
-      mongo:
-        condition: service_healthy
+      # mongo:
+      #   condition: service_healthy
       redis:
         condition: service_healthy
     deploy: # Giới hạn tài nguyên để mô phỏng sự cố CPU Throttling
       resources:
-        limits: 
-          cpus: '1'   
-          memory: '1024M'
+        limits:
+          cpus: "2" # Mở hạn mức lên 2 vCPU (do t3.micro có 2 vCPU) để dễ dàng kích hoạt Auto Scaling
+          memory: "1024M"
     restart: unless-stopped
 
-  mongo:
-    image: mongo:7.0
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db # Ánh xạ ổ cứng thật vào container để dữ liệu không bị mất khi tắt máy
-    environment:
-      - MONGO_INITDB_DATABASE=cloud_db
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
-    healthcheck:
-      # KIỂM TRA: Cứ mỗi 10s, dùng lệnh 'mongosh' gõ cửa hỏi xem DB đã sẵn sàng nhận request chưa
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-    restart: unless-stopped
+  # mongo:
+  #   image: mongo:7.0
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongo_data:/data/db # Ánh xạ ổ cứng thật vào container để dữ liệu không bị mất khi tắt máy
+  #   environment:
+  #     - MONGO_INITDB_DATABASE=cloud_db
+  #     - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
+  #     - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+  #   healthcheck:
+  #     # KIỂM TRA: Cứ mỗi 10s, dùng lệnh 'mongosh' gõ cửa hỏi xem DB đã sẵn sàng nhận request chưa
+  #     test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+  #     interval: 10s
+  #     timeout: 10s
+  #     retries: 5
+  #   restart: unless-stopped
 
   redis:
     image: redis:7
@@ -75,34 +75,11 @@ services:
       retries: 5
     restart: unless-stopped
 
-  redis-exporter:
-    image: oliver006/redis_exporter
-    ports:
-      - "9121:9121"
-    environment:
-      - REDIS_ADDR=redis:6379
-    depends_on:
-      - redis
-    restart: unless-stopped
-
   rabbitmq:
     image: rabbitmq:3-management
     ports:
       - "5672:5672"
       - "15672:15672"
-    restart: unless-stopped
-
-  mongodb-exporter:
-    image: bitnami/mongodb-exporter:latest  
-    ports:
-      - "9216:9216"
-    environment:
-      - MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/admin?authSource=admin
-      - MONGODB_ENABLE_COLLECTION_STATS=true
-    command:
-      - --mongodb.uri=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/admin?authSource=admin
-    depends_on:
-      - mongo
     restart: unless-stopped
 
   cadvisor:
@@ -117,27 +94,15 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro #map container → metrics
     restart: unless-stopped
 
-  grafana:
-    image: grafana/grafana:latest
+  redis-exporter:
+    image: oliver006/redis_exporter
     ports:
-      - "3000:3000"
+      - "9121:9121"
     environment:
-      - GF_SECURITY_ALLOW_EMBEDDING=true
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
     restart: unless-stopped
 
-  prometheus:
-    image: prom/prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-
 volumes:
-  mongo_data:
   redis_data:
-  grafana_data:

@@ -6,3 +6,8 @@ client/.env
 .env
 tmp
 .idea/
+
+# Bỏ qua các file nhạy cảm của Terraform
+terraform.tfvars
+*.tfvars
+.terraform/
