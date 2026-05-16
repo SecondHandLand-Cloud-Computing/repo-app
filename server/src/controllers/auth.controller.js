@@ -82,11 +82,15 @@ export const register = asyncHandler(async (req, res) => {
   res.cookie("token", accessToken, {
     httpOnly: true,
     secure: env.COOKIE_SECURE,
-    sameSite: "strict",
+    sameSite: "lax",
     maxAge: 60 * 60 * 1000,
   });
 
-  return res.status(200).json({ message: "Register successful" });
+  return res.status(200).json({ 
+    message: "Register successful",
+    token: accessToken,
+    data: { id, role }
+  });
 });
 
 export const login = asyncHandler(async (req, res) => {
@@ -100,11 +104,12 @@ export const login = asyncHandler(async (req, res) => {
   res.cookie("token", accessToken, {
     httpOnly: true,
     secure: env.COOKIE_SECURE,
-    sameSite: "strict",
+    sameSite: "lax",
     maxAge: 60 * 60 * 1000,
   });
   return res.status(200).json({
     message: "Login successful",
+    token: accessToken,
     data: {
       id,
       role,

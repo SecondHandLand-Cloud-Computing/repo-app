@@ -11,7 +11,8 @@ resource "random_string" "suffix" {
 
 # 2. Tạo S3 Bucket
 resource "aws_s3_bucket" "frontend_bucket" {
-  bucket = "second-hand-land-frontend-${random_string.suffix.result}" 
+  bucket        = "second-hand-land-frontend-${random_string.suffix.result}" 
+  force_destroy = true # Cho phép xóa bucket kể cả khi có file bên trong
 }
 
 # 3. Bật tính năng Website Hosting cho phép truy cập như trang web

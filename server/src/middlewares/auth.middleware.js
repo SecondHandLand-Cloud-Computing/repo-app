@@ -1,7 +1,9 @@
 import { verifyToken } from "../utils/jwt.js";
 
 export const requireAuth = (req, res, next) => {
-  const token = req.cookies.token;
+  // Lấy token từ Cookie HOẶC từ Header Authorization
+  const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+  
   if (!token) {
     return res.status(401).json({ message: "Missing token" });
   }
