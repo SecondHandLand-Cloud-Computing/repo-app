@@ -19,9 +19,21 @@ variable "mongo_uri" {
     default = "https://github.com/SecondHandLand-Cloud-Computing/monitoring.git"
  }
 
- # jwt
- variable "jwt_secret" {
-    description = "jwt secret key"
-    type = string
-    sensitive = true
- }
+# jwt
+variable "jwt_secret" {
+  description = "jwt secret key"
+  type        = string
+  sensitive   = true
+}
+
+# Cloudinary
+variable "cloudinary_name" {
+  type = string
+}
+variable "cloudinary_api_key" {
+  type = string
+}
+variable "cloudinary_api_secret" {
+  type      = string
+  sensitive = true
+}

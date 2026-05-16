@@ -12,6 +12,9 @@ echo "" >> .env
 cat << 'EOF' >> .env
 MONGO_URI=${mongo_uri}
 JWT_SECRET=${jwt_secret}
+CLOUD_NAME=${cloudinary_name}
+CLOUD_API_KEY=${cloudinary_api_key}
+CLOUD_API_SECRET=${cloudinary_api_secret}
 EOF
 
 # Chạy Docker Compose

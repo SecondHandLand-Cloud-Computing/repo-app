@@ -68,9 +68,12 @@ resource "aws_launch_template" "app_template" {
 
   # User Data: Tự cài Docker, pull repo App và bơm Secrets
   user_data = base64encode(templatefile("${path.module}/scripts/setup_app.sh", {
-    repo_app_url = var.repo_app_url
-    mongo_uri    = var.mongo_uri
-    jwt_secret   = var.jwt_secret
+    repo_app_url          = var.repo_app_url
+    mongo_uri             = var.mongo_uri
+    jwt_secret            = var.jwt_secret
+    cloudinary_name       = var.cloudinary_name
+    cloudinary_api_key    = var.cloudinary_api_key
+    cloudinary_api_secret = var.cloudinary_api_secret
   }))
 
   # Đánh Tag cực kỳ quan trọng để Prometheus tự động nhận diện
