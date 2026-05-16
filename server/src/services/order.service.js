@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Product } from "../models/product.model.js";
 import { Customer } from "../models/customer.model.js";
 import { Order } from "../models/order.model.js";
@@ -16,6 +17,8 @@ export const OrderService = {
     const reservedProducts = [];
     const jobs = [];
     const createdOrders = [];
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
     try {
       // group by seller
