@@ -11,13 +11,15 @@ export const requireAuth = (req, res, next) => {
   if (!payload) {
     return res.status(401).json({ message: "Invalid token" });
   }
-  req.user = payload;
+  // Đảm bảo payload có trường id (map từ sub của JWT)
+  req.user = { ...payload, id: payload.sub };
 
   next();
 };
 
 export const optionalAuth = (req, res, next) => {
-  const token = req.cookies?.token;
+  // Hỗ trợ cả Cookie và Header Authorization cho khách vãng lai
+  const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
 
   if (!token) {
     req.user = null;
@@ -26,7 +28,11 @@ export const optionalAuth = (req, res, next) => {
 
   try {
     const payload = verifyToken(token);
-    req.user = payload || null;
+    if (payload) {
+      req.user = { ...payload, id: payload.sub };
+    } else {
+      req.user = null;
+    }
   } catch (err) {
     req.user = null;
   }

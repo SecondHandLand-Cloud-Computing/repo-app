@@ -33,21 +33,29 @@ export const ProductService = {
       throw new AppError("Product not found", 404);
     }
 
-    if (user.role !== "admin") {
-      // only admin can view status deleted
+    const userRole = user?.role || "guest";
+    const userId = user?.id || null;
+
+    if (userRole !== "admin") {
+      // Chỉ admin mới được xem sản phẩm đã xóa
       if (product.status === "deleted") {
         throw new AppError("Product not found", 404);
-      } // check owner and guest only view active product
-      else if (product.createdBy.toString() !== user.id.toString() && product.status !== "active") {
+      }
+
+      // Nếu là khách hoặc không phải chủ sở hữu, chỉ được xem sản phẩm "active"
+      const isOwner = userId && product.createdBy && product.createdBy._id.toString() === userId.toString();
+      if (!isOwner && product.status !== "active") {
         throw new AppError("Product not found", 404);
       }
     }
 
     product.imagePublicUrl = CloudinaryService.generateSignedUrl(product.imagePublicId);
 
-    product.createdBy.avatarPublicUrl = CloudinaryService.generateSignedUrl(
-      product.createdBy.avatarPublicId
-    );
+    if (product.createdBy) {
+      product.createdBy.avatarPublicUrl = CloudinaryService.generateSignedUrl(
+        product.createdBy.avatarPublicId
+      );
+    }
 
     // reshape category
     product.category = {
