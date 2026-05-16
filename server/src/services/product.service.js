@@ -236,38 +236,53 @@ export const ProductService = {
     return finalResult;
   },
 
-  async getMyList(userId) {
+  async getMyList(userId, page = 1, limit = 5) {
     // tao cache key
-    const cacheKey = `my_product_list:${userId}`;
+    const cacheKey = `my_product_list:${userId}:p_${page}:l_${limit}`;
     // kiem tra redis 
     const cacheData = await RedisService.get(cacheKey);
     if (cacheData) {
       return cacheData;
     }
 
-    // neu khong co cache -> truy van mongoDB va luu vao redis
-    const products = await measureDB("find", "products", Product.find({
-      createdBy: new mongoose.Types.ObjectId(userId),
-      status: { $ne: "deleted" },
-    })
-      .populate("categoryId", "name")
-      .sort({ createdAt: -1 })
-      .lean());
+    const skip = (page - 1) * limit;
 
-    const finalResult = products.map((product) => ({
+    // neu khong co cache -> truy van mongoDB va luu vao redis
+    const [products, total] = await Promise.all([
+      measureDB("find", "products", Product.find({
+        createdBy: new mongoose.Types.ObjectId(userId),
+        status: { $ne: "deleted" },
+      })
+        .populate("categoryId", "name")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()),
+      measureDB("countDocuments", "products", Product.countDocuments({
+        createdBy: new mongoose.Types.ObjectId(userId),
+        status: { $ne: "deleted" },
+      }))
+    ]);
+
+    const items = products.map((product) => ({
       ...product,
       imagePublicUrl: CloudinaryService.generateSignedUrl(product.imagePublicId),
       category: {
-        _id: product.categoryId._id,
-        name: product.categoryId.name,
+        _id: product.categoryId?._id,
+        name: product.categoryId?.name,
       },
     }))
 
-    // TTL ngắn hơn (15s) so với getList (60s) là có chủ đích:
-    // Đây là dữ liệu cá nhân — user kỳ vọng thấy thay đổi gần như ngay
-    // sau khi tạo / sửa / xóa sản phẩm của mình. Cache danh sách này
-    // không bị invalidate chủ động khi có mutation, nên TTL ngắn đóng
-    // vai trò safety net để dữ liệu không bị stale quá lâu.
+    const finalResult = {
+      data: items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+
     await RedisService.set(cacheKey, finalResult, 15);
 
     return finalResult

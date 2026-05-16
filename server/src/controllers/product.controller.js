@@ -84,9 +84,10 @@ export const getListProducts = asyncHandler(async (req, res) => {
 });
 
 export const getMyListProducts = asyncHandler(async (req, res) => {
-  const id = req.user.sub;
+  const { page = 1, limit = 5 } = req.query;
+  const id = req.user.id;
 
-  const result = await ProductService.getMyList(id);
+  const result = await ProductService.getMyList(id, Number(page), Number(limit));
 
   return res.status(200).json({
     message: "Get my list products successfully",
