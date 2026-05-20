@@ -1,20 +1,22 @@
 Đây là "Kịch bản Chung kết" (The Master Plan). Kịch bản này đã tích hợp toàn bộ các vũ khí tối tân nhất mà chúng ta đã bàn: Terraform (IaC), AWS Auto Scaling (ASG), Application Load Balancer (ALB), và Hệ thống Monitoring Đa tầng (Prometheus + Grafana + Database/Cache Exporters).
 Với kịch bản này, bạn sẽ trình diễn tư duy của một Cloud/DevOps Engineer thực thụ chứ không chỉ là một lập trình viên biết xài Docker.
 
-GIAI ĐOẠN 1: CHUẨN BỊ TẠI LOCAL (Architecture & Code)
-Trước ngày báo cáo, thư mục dự án của bạn trên máy tính cần được cấu trúc rõ ràng:
-1. Chuẩn bị Mã nguồn (Đẩy lên GitHub):
-Repo App: Chứa code Node.js và file docker-compose.yml (gồm 3 container: Nginx Proxy, Node.js Backend, và cAdvisor ở port 8080).
-Repo Monitor: Chứa file docker-compose.yml (gồm Prometheus, Grafana, MongoDB Exporter, Redis Exporter).
-2. Chuẩn bị Terraform Code (/terraform):
-Cấu hình Terraform để tạo ra:
-VPC & Security Groups:
-SG-Monitor: Mở port 22, 3000 (Grafana).
-SG-App: Mở port 22, 80 (cho ALB gọi vào), 8080 (cho Prometheus gọi vào).
-SG-ALB: Mở port 80 (cho Internet truy cập).
-Monitor Server (EC2 Độc lập): Được gán IAM Role có quyền ec2:DescribeInstances (để Prometheus tự tìm IP máy App). Chạy User Data tự cài Docker và pull Repo Monitor.
-Application Load Balancer (ALB): Điểm vào duy nhất của hệ thống.
-Launch Template & Auto Scaling Group (ASG): Bản thiết kế App Server (cài Docker, pull Repo App) và luật Scale (Min: 1, Max: 3, Policy: CPU > 50%).
+GIAI ĐOẠN 1: KIẾN TRÚC & TỰ ĐỘNG HÓA (Infrastructure as Code)
+Chúng ta không chỉ xây dựng một ứng dụng, chúng ta xây dựng một hệ thống Cloud-Native tự vận hành:
+1. Phân tách Frontend & Backend:
+   - Repo Client: Đóng gói thành Static Site, deploy lên AWS S3 (Tốc độ cực nhanh, chi phí gần như bằng 0).
+   - Repo App: Chạy trên bầy đàn máy ảo EC2 sau bộ chia tải ALB (Khả năng chịu tải không giới hạn).
+2. Tự động hóa Hạ tầng (Terraform):
+   - VPC & Networking: Phân vùng bảo mật đa tầng.
+   - S3 Static Hosting: Cho phép truy cập Frontend toàn cầu.
+   - Application Load Balancer (ALB): Điểm vào duy nhất cho API Backend.
+   - Auto Scaling Group (ASG): Tự động nhân bản máy ảo khi CPU > 50%.
+   - IAM Roles & Policy: Cấp quyền tối thiểu (Least Privilege) cho các dịch vụ.
+
+GIAI ĐOẠN 2: TRIỂN KHAI TỰ ĐỘNG (CI/CD Pipeline)
+Sử dụng GitHub Actions để đạt được luồng làm việc của các Senior DevOps:
+- Frontend CI/CD: Tự động Build và Sync lên S3 mỗi khi Push code.
+- Backend CI/CD: Tự động ra lệnh "Instance Refresh" cho AWS để thay máy mới không gây gián đoạn (Zero-Downtime).
 
 GIAI ĐOẠN 2: TRIỂN KHAI HẠ TẦNG (The Automation)
 (Thực hiện trước khi bắt đầu thuyết trình khoảng 5-10 phút để server có thời gian khởi động)

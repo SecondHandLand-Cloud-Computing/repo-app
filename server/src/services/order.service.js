@@ -3,6 +3,7 @@ import { Product } from "../models/product.model.js";
 import { Customer } from "../models/customer.model.js";
 import { Order } from "../models/order.model.js";
 import { Wallet } from "../models/wallet.model.js";
+import { Cart } from "../models/cart.model.js";
 import { ProviderService } from "./provider.service.js";
 import { InventoryService } from "./inventory.service.js";
 import { RabbitMQService } from "./rabbitmq.service.js";

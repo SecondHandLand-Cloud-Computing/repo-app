@@ -2,12 +2,12 @@ import http from "k6/http";
 import { sleep, check } from "k6";
 import { randomItem } from "https://jslib.k6.io/k6-utils/1.4.0/index.js";
 
-const BASE_URL = "http://cloud-app-alb-837970011.ap-southeast-1.elb.amazonaws.com";
+const BASE_URL = "http://cloud-app-alb-885151360.ap-southeast-1.elb.amazonaws.com";
 
 export const options = {
   stages: [
     { duration: "30s", target: 5 },   // ramp up
-    { duration: "1m",  target: 10 },  // sustained load
+    { duration: "1m", target: 10 },  // sustained load
     { duration: "30s", target: 0 },   // ramp down
   ],
 };
