@@ -9,6 +9,12 @@ resource "aws_instance" "monitor_server" {
   vpc_security_group_ids = [aws_security_group.monitor_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.prometheus_profile.name # Cấp quyền IAM
 
+  # Nâng cấp ổ cứng lên 20GB (Vẫn nằm trong giới hạn 30GB Free Tier của AWS) để Prometheus không bị đầy bộ nhớ
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
+  }
+
   # Khởi động máy ảo: Tự cài Docker và pull repo Monitor về chạy
   user_data = templatefile("${path.module}/scripts/setup_monitor.sh", {
     monitor_url = var.monitor_url
@@ -36,7 +42,7 @@ resource "aws_lb_target_group" "app_tg" {
   vpc_id   = aws_vpc.main_vpc.id
   health_check {
     path                = "/"
-    interval            = 30
+    interval            = 10
     timeout             = 5
     healthy_threshold   = 2
     unhealthy_threshold = 2
@@ -110,6 +116,6 @@ resource "aws_autoscaling_policy" "cpu_policy" {
     predefined_metric_specification {
       predefined_metric_type = "ASGAverageCPUUtilization"
     }
-    target_value = 50.0
+    target_value = 30.0
   }
 }

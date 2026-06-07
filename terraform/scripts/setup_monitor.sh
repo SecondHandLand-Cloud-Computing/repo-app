@@ -4,6 +4,12 @@ sudo apt update -y
 sudo apt install -y docker.io docker-compose git
 
 # Kéo mã nguồn của Monitor Server về
+# Thêm Swap RAM ảo (2GB) để tránh bị tràn RAM (OOM) làm sập Prometheus
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
 git clone ${monitor_url} /home/ubuntu/monitoring
 cd /home/ubuntu/monitoring
 
